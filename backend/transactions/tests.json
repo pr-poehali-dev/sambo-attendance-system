@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "Get all transactions",
+      "method": "GET",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "transactions": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Add payment transaction",
+      "method": "POST",
+      "body": {
+        "student_id": 1,
+        "amount": 1500,
+        "description": "Оплата за январь"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "new_balance": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "transactions": "https://functions.poehali.dev/1ebcd5ce-86f7-4573-ac0c-91a97656f57c",
+  "attendance": "https://functions.poehali.dev/5a193d5d-2c57-4a45-bb02-73dbbb01b20d",
+  "auth": "https://functions.poehali.dev/0cd64a83-9e83-46f9-af74-51188cdb58ae",
+  "groups": "https://functions.poehali.dev/c773dc60-74a2-4b60-99cf-9c08d77f6e23",
+  "students": "https://functions.poehali.dev/70baa7bf-5aa8-4fa2-92d9-950ca31579de"
+}

@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "name": "Get all students",
+      "method": "GET",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "students": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Create new student",
+      "method": "POST",
+      "body": {
+        "full_name": "Тестовый Ученик",
+        "birth_date": "2015-05-15",
+        "parent_contact": "+79001234567"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "success": true,
+        "login": "string",
+        "temp_password": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

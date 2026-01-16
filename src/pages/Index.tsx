@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,44 +6,74 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-
-interface Student {
-  id: number;
-  name: string;
-  balance: number;
-  attendance: number;
-  group: string;
-  lastVisit: string;
-}
-
-interface Group {
-  id: number;
-  name: string;
-  students: number;
-  schedule: string;
-  trainer: string;
-}
+import LoginForm from '@/components/LoginForm';
+import { api, User, Group, Student } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [user, setUser] = useState<User | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  const mockStudents: Student[] = [
-    { id: 1, name: 'Иванов Артём', balance: 1200, attendance: 92, group: 'САМБО 7-9 лет', lastVisit: '2026-01-15' },
-    { id: 2, name: 'Петрова Мария', balance: -300, attendance: 87, group: 'САМБО 7-9 лет', lastVisit: '2026-01-14' },
-    { id: 3, name: 'Сидоров Максим', balance: 600, attendance: 95, group: 'Юниоры', lastVisit: '2026-01-16' },
-    { id: 4, name: 'Кузнецова Анна', balance: -600, attendance: 78, group: 'Юниоры', lastVisit: '2026-01-13' },
-  ];
+  useEffect(() => {
+    const savedUser = localStorage.getItem('sambo_user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+    setLoading(false);
+  }, []);
 
-  const mockGroups: Group[] = [
-    { id: 1, name: 'САМБО 7-9 лет', students: 12, schedule: 'ПН, СР, ПТ 16:00', trainer: 'Бикташев А.' },
-    { id: 2, name: 'Юниоры', students: 15, schedule: 'ВТ, ЧТ, СБ 18:00', trainer: 'Бикташев А.' },
-    { id: 3, name: 'Начинающие', students: 8, schedule: 'ПН, СР 17:00', trainer: 'Иванов С.' },
-  ];
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [user]);
 
-  const totalStudents = mockStudents.length;
-  const totalDebt = mockStudents.filter(s => s.balance < 0).reduce((sum, s) => sum + Math.abs(s.balance), 0);
-  const totalBalance = mockStudents.reduce((sum, s) => sum + s.balance, 0);
-  const avgAttendance = Math.round(mockStudents.reduce((sum, s) => sum + s.attendance, 0) / totalStudents);
+  const loadData = async () => {
+    try {
+      const [groupsData, studentsData] = await Promise.all([
+        api.groups.getAll(),
+        api.students.getAll(),
+      ]);
+      setGroups(groupsData);
+      setStudents(studentsData);
+    } catch (error) {
+      toast({
+        title: 'Ошибка загрузки данных',
+        description: error instanceof Error ? error.message : 'Неизвестная ошибка',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('sambo_user');
+    setUser(null);
+    setGroups([]);
+    setStudents([]);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Icon name="Loader2" size={48} className="animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginForm onSuccess={setUser} />;
+  }
+
+  const totalStudents = students.length;
+  const totalDebt = students.filter(s => s.balance < 0).reduce((sum, s) => sum + Math.abs(s.balance), 0);
+  const totalBalance = students.reduce((sum, s) => sum + s.balance, 0);
+  const avgAttendance = students.length > 0 
+    ? Math.round(students.reduce((sum, s) => sum + (s.attendance_percentage || 0), 0) / students.length)
+    : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -55,7 +85,7 @@ const Index = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground font-heading">САМБО Система</h1>
-              <p className="text-sm text-muted-foreground">Система учёта посещаемости</p>
+              <p className="text-sm text-muted-foreground">Добро пожаловать, {user.full_name}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -63,8 +93,14 @@ const Index = () => {
               <Icon name="Bell" size={20} />
             </Button>
             <Avatar>
-              <AvatarFallback className="bg-primary text-primary-foreground font-semibold">АБ</AvatarFallback>
+              <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+                {user.full_name.split(' ').map(n => n[0]).join('')}
+              </AvatarFallback>
             </Avatar>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <Icon name="LogOut" size={16} className="mr-2" />
+              Выйти
+            </Button>
           </div>
         </div>
       </header>
@@ -106,7 +142,7 @@ const Index = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold text-foreground">{totalStudents}</div>
-                    <p className="text-xs text-muted-foreground mt-1">В 3 группах</p>
+                    <p className="text-xs text-muted-foreground mt-1">В {groups.length} группах</p>
                   </CardContent>
                 </Card>
 
@@ -147,7 +183,7 @@ const Index = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold text-destructive">{totalDebt} ₽</div>
-                    <p className="text-xs text-muted-foreground mt-1">{mockStudents.filter(s => s.balance < 0).length} должников</p>
+                    <p className="text-xs text-muted-foreground mt-1">{students.filter(s => s.balance < 0).length} должников</p>
                   </CardContent>
                 </Card>
               </div>
@@ -157,28 +193,28 @@ const Index = () => {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Icon name="Activity" size={20} />
-                      Последние посещения
+                      Последние ученики
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {mockStudents.map(student => (
+                    {students.slice(0, 5).map(student => (
                       <div key={student.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
                         <div className="flex items-center gap-3">
                           <Avatar>
                             <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                              {student.name.split(' ').map(n => n[0]).join('')}
+                              {student.full_name.split(' ').map(n => n[0]).join('')}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium text-sm">{student.name}</p>
-                            <p className="text-xs text-muted-foreground">{student.group}</p>
+                            <p className="font-medium text-sm">{student.full_name}</p>
+                            <p className="text-xs text-muted-foreground">{student.group_name || 'Без группы'}</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <Badge variant={student.attendance >= 90 ? 'default' : 'secondary'} className="mb-1">
-                            {student.attendance}%
+                          <Badge variant={(student.attendance_percentage || 0) >= 90 ? 'default' : 'secondary'} className="mb-1">
+                            {student.attendance_percentage || 0}%
                           </Badge>
-                          <p className="text-xs text-muted-foreground">{student.lastVisit}</p>
+                          <p className="text-xs text-muted-foreground">{student.login}</p>
                         </div>
                       </div>
                     ))}
@@ -193,17 +229,17 @@ const Index = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {mockStudents.filter(s => s.balance < 0).map(student => (
+                    {students.filter(s => s.balance < 0).slice(0, 5).map(student => (
                       <div key={student.id} className="flex items-center justify-between p-3 rounded-lg bg-destructive/10 border border-destructive/20 hover:bg-destructive/20 transition-colors">
                         <div className="flex items-center gap-3">
                           <Avatar>
                             <AvatarFallback className="bg-destructive text-destructive-foreground text-xs">
-                              {student.name.split(' ').map(n => n[0]).join('')}
+                              {student.full_name.split(' ').map(n => n[0]).join('')}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium text-sm">{student.name}</p>
-                            <p className="text-xs text-muted-foreground">{student.group}</p>
+                            <p className="font-medium text-sm">{student.full_name}</p>
+                            <p className="text-xs text-muted-foreground">{student.group_name || 'Без группы'}</p>
                           </div>
                         </div>
                         <div className="text-right">
@@ -228,21 +264,21 @@ const Index = () => {
                 </Button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {mockGroups.map(group => (
+                {groups.map(group => (
                   <Card key={group.id} className="hover-scale cursor-pointer">
                     <CardHeader>
                       <div className="flex items-start justify-between">
                         <div>
                           <CardTitle className="text-lg">{group.name}</CardTitle>
-                          <p className="text-sm text-muted-foreground mt-1">{group.trainer}</p>
+                          <p className="text-sm text-muted-foreground mt-1">{group.trainer_name || 'Без тренера'}</p>
                         </div>
-                        <Badge variant="secondary">{group.students} чел</Badge>
+                        <Badge variant="secondary">{group.student_count || 0} чел</Badge>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="flex items-center gap-2 text-sm">
                         <Icon name="Calendar" size={16} className="text-muted-foreground" />
-                        <span>{group.schedule}</span>
+                        <span>{group.schedule || 'Расписание не задано'}</span>
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" className="flex-1">Посещаемость</Button>
@@ -272,27 +308,27 @@ const Index = () => {
                           <th className="text-left p-4 font-semibold text-sm">Группа</th>
                           <th className="text-left p-4 font-semibold text-sm">Посещаемость</th>
                           <th className="text-left p-4 font-semibold text-sm">Баланс</th>
-                          <th className="text-left p-4 font-semibold text-sm">Последний визит</th>
+                          <th className="text-left p-4 font-semibold text-sm">Логин</th>
                           <th className="text-left p-4 font-semibold text-sm">Действия</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {mockStudents.map(student => (
+                        {students.map(student => (
                           <tr key={student.id} className="border-b hover:bg-muted/30 transition-colors">
                             <td className="p-4">
                               <div className="flex items-center gap-3">
                                 <Avatar>
                                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                                    {student.name.split(' ').map(n => n[0]).join('')}
+                                    {student.full_name.split(' ').map(n => n[0]).join('')}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className="font-medium">{student.name}</span>
+                                <span className="font-medium">{student.full_name}</span>
                               </div>
                             </td>
-                            <td className="p-4 text-sm">{student.group}</td>
+                            <td className="p-4 text-sm">{student.group_name || 'Без группы'}</td>
                             <td className="p-4">
-                              <Badge variant={student.attendance >= 90 ? 'default' : 'secondary'}>
-                                {student.attendance}%
+                              <Badge variant={(student.attendance_percentage || 0) >= 90 ? 'default' : 'secondary'}>
+                                {student.attendance_percentage || 0}%
                               </Badge>
                             </td>
                             <td className="p-4">
@@ -300,7 +336,7 @@ const Index = () => {
                                 {student.balance >= 0 ? '+' : ''}{student.balance} ₽
                               </span>
                             </td>
-                            <td className="p-4 text-sm text-muted-foreground">{student.lastVisit}</td>
+                            <td className="p-4 text-sm text-muted-foreground">{student.login}</td>
                             <td className="p-4">
                               <div className="flex gap-2">
                                 <Button size="sm" variant="ghost">
@@ -342,8 +378,8 @@ const Index = () => {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="p-3 rounded-lg bg-success/10 border border-success/20">
-                      <p className="text-sm text-muted-foreground">Поступления (месяц)</p>
-                      <p className="text-2xl font-bold text-success">+24,600 ₽</p>
+                      <p className="text-sm text-muted-foreground">Общий баланс</p>
+                      <p className="text-2xl font-bold text-success">+{totalBalance} ₽</p>
                     </div>
                     <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
                       <p className="text-sm text-muted-foreground">Задолженности</p>
@@ -367,24 +403,12 @@ const Index = () => {
                       <CardTitle className="text-center text-sm">{day}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                      {idx % 2 === 0 && idx < 6 && (
-                        <>
-                          <div className="p-2 rounded bg-primary/10 border border-primary/20 text-xs">
-                            <p className="font-semibold">16:00</p>
-                            <p className="text-muted-foreground">7-9 лет</p>
-                          </div>
-                          <div className="p-2 rounded bg-accent/10 border border-accent/20 text-xs">
-                            <p className="font-semibold">17:00</p>
-                            <p className="text-muted-foreground">Начинающие</p>
-                          </div>
-                        </>
-                      )}
-                      {idx % 2 === 1 && idx < 6 && (
-                        <div className="p-2 rounded bg-success/10 border border-success/20 text-xs">
-                          <p className="font-semibold">18:00</p>
-                          <p className="text-muted-foreground">Юниоры</p>
+                      {groups.filter(g => g.schedule?.includes(day)).map(group => (
+                        <div key={group.id} className="p-2 rounded bg-primary/10 border border-primary/20 text-xs">
+                          <p className="font-semibold">{group.schedule?.split(' ').pop()}</p>
+                          <p className="text-muted-foreground">{group.name}</p>
                         </div>
-                      )}
+                      ))}
                     </CardContent>
                   </Card>
                 ))}

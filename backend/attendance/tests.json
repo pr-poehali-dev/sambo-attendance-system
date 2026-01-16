@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "Get attendance records",
+      "method": "GET",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "attendance": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Mark attendance",
+      "method": "POST",
+      "body": {
+        "group_id": 1,
+        "session_date": "2026-01-16",
+        "present_students": [1, 2],
+        "trainer_comment": "Отличная тренировка"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
